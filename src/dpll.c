@@ -14,6 +14,11 @@
     //  	0 if there is not
 
 int containsEmptyClause(clauseset* csPtr) {
+    for (int clauseNo = 0; clauseNo < csPtr->num_clauses; clauseNo++) {
+        if (csPtr->clauses[clauseNo].num_literals == 0)
+            return 1;
+    }
+    return 0;
 }
 
     // Complete the implementation of unitClause
@@ -23,20 +28,29 @@ int containsEmptyClause(clauseset* csPtr) {
     //  	the unique literal in a unit clause if there is at least one
 
 int unitClause(clauseset* csPtr) {
+    for (int clauseNo = 0; clauseNo < csPtr->num_clauses; clauseNo++) {
+        if (csPtr->clauses[clauseNo].num_literals == 1)
+            return csPtr->clauses[clauseNo].literals[0];
+    }
+    return 0;
 }
     // Complete the implementation of firstLiteral
     // This function takes a pointer to a clause set
     //  and returns the first literal in the first 
     //  clause which is not empty
     //
-    //  If there is no literal (clause set empty or all clausese empty)
+    //  If there is no literal (clause set empty or all clauses empty)
     //  then it returns 0
 
 int firstLiteral(clauseset* csPtr) {
+    for (int clauseNo = 0; clauseNo < csPtr->num_clauses; clauseNo++) {
+        if (csPtr->clauses[clauseNo].num_literals > 0)
+            return csPtr->clauses[clauseNo].literals[0];
+    }
+    return 0;
 }
 
 char dpll(clauseset cs) { 
-
     node_count++;
    
     __asm__ ("nop;" ); // pointless assembler instruction
@@ -47,7 +61,7 @@ char dpll(clauseset cs) {
     }
     else if (containsEmptyClause(&cs)) {
         // printf(" fail empty clause\n");
-	failures++;
+	    failures++;
         return 0;
     }
     else {
