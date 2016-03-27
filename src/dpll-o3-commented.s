@@ -1,5 +1,5 @@
 	.text
-	.file	"dpll.c"
+	.file	"/cs/home/cb307/.ccache/tmp/dpll.stdout.klovia.cs.st-andrews.ac.uk.18511.6BIdTS.i"
 	.globl	containsEmptyClause
 	.align	16, 0x90
 	.type	containsEmptyClause,@function
@@ -42,8 +42,8 @@ containsEmptyClause:
 	movl	-4(%rbp), %eax
 	popq	%rbp
 	retq
-.Ltmp3:
-	.size	containsEmptyClause, .Ltmp3-containsEmptyClause
+.Lfunc_end0:
+	.size	containsEmptyClause, .Lfunc_end0-containsEmptyClause
 	.cfi_endproc
 
 	.globl	unitClause
@@ -52,12 +52,12 @@ containsEmptyClause:
 unitClause:
 	.cfi_startproc
 	pushq	%rbp
-.Ltmp4:
+.Ltmp3:
 	.cfi_def_cfa_offset 16
-.Ltmp5:
+.Ltmp4:
 	.cfi_offset %rbp, -16
 	movq	%rsp, %rbp
-.Ltmp6:
+.Ltmp5:
 	.cfi_def_cfa_register %rbp
 	movq	%rdi, -16(%rbp)
 	movl	$0, -20(%rbp)
@@ -94,8 +94,8 @@ unitClause:
 	movl	-4(%rbp), %eax
 	popq	%rbp
 	retq
-.Ltmp7:
-	.size	unitClause, .Ltmp7-unitClause
+.Lfunc_end1:
+	.size	unitClause, .Lfunc_end1-unitClause
 	.cfi_endproc
 
 	.globl	firstLiteral
@@ -104,12 +104,12 @@ unitClause:
 firstLiteral:
 	.cfi_startproc
 	pushq	%rbp
-.Ltmp8:
+.Ltmp6:
 	.cfi_def_cfa_offset 16
-.Ltmp9:
+.Ltmp7:
 	.cfi_offset %rbp, -16
 	movq	%rsp, %rbp
-.Ltmp10:
+.Ltmp8:
 	.cfi_def_cfa_register %rbp
 	movq	%rdi, -16(%rbp)
 	movl	$0, -20(%rbp)
@@ -146,8 +146,8 @@ firstLiteral:
 	movl	-4(%rbp), %eax
 	popq	%rbp
 	retq
-.Ltmp11:
-	.size	firstLiteral, .Ltmp11-firstLiteral
+.Lfunc_end2:
+	.size	firstLiteral, .Lfunc_end2-firstLiteral
 	.cfi_endproc
 
 	.globl	dpll
@@ -156,12 +156,12 @@ firstLiteral:
 dpll:
 	.cfi_startproc
 	pushq	%rbp
-.Ltmp12:
+.Ltmp9:
 	.cfi_def_cfa_offset 16
-.Ltmp13:
+.Ltmp10:
 	.cfi_offset %rbp, -16
 	movq	%rsp, %rbp
-.Ltmp14:
+.Ltmp11:
 	.cfi_def_cfa_register %rbp
 	subq	$9776, %rsp
 	leaq	16(%rbp), %rax
@@ -231,7 +231,7 @@ dpll:
 	jmp	.LBB3_9
 .LBB3_8:
 	movabsq	$.L.str, %rdi
-	movabsq	$.L.str1, %rsi
+	movabsq	$.L.str.1, %rsi
 	movl	$75, %edx
 	movabsq	$.L__PRETTY_FUNCTION__.dpll, %rcx
 	callq	__assert_fail
@@ -302,8 +302,8 @@ dpll:
 	addq	$9776, %rsp
 	popq	%rbp
 	retq
-.Ltmp15:
-	.size	dpll, .Ltmp15-dpll
+.Lfunc_end3:
+	.size	dpll, .Lfunc_end3-dpll
 	.cfi_endproc
 
 	.type	node_count,@object
@@ -316,10 +316,10 @@ dpll:
 	.asciz	"literal != 0"
 	.size	.L.str, 13
 
-	.type	.L.str1,@object
-.L.str1:
+	.type	.L.str.1,@object
+.L.str.1:
 	.asciz	"dpll.c"
-	.size	.L.str1, 7
+	.size	.L.str.1, 7
 
 	.type	.L__PRETTY_FUNCTION__.dpll,@object
 .L__PRETTY_FUNCTION__.dpll:
@@ -329,5 +329,5 @@ dpll:
 	.type	cs_original,@object
 	.comm	cs_original,2408,4
 
-	.ident	"Ubuntu clang version 3.6.2-1 (tags/RELEASE_362/final) (based on LLVM 3.6.2)"
+	.ident	"clang version 3.7.0 (tags/RELEASE_370/final)"
 	.section	".note.GNU-stack","",@progbits
