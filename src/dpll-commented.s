@@ -419,8 +419,12 @@ dpll:
                             # unit clause so we jump to a later
                             # section.
 
-	leaq	-2416(%rbp), %rax   # ??? Still no idea, although 2416 -
-                                # 2408 gives the 8 bytes used above
+	leaq	-2416(%rbp), %rax   # This instruction loads an address
+                                # into the %rax register. This has no
+                                # actual purpose here, although the
+                                # compiler code might be anticipating
+                                # something like what happens in the
+                                # later line which calls "leaq -2416(%                                # rbp)" (explained below).
 
     # The following commands are largely used to set up the necessary
     # conditions for the "rep" command used below. This command copies
@@ -452,110 +456,352 @@ dpll:
 	movq	%r8, %rsi   # (source) Puts the address of the clauseset
                         # into the source register, %rsi.
 	rep;movsq   # Copies 2408 bytes from memory (from the previous
-                # callstack) into this function's stack. This data
-                # represents the clauseset. It is copied into memory
-                # because we wish to pass it as an argument to 
+                # callstack) into the top of this function's stack.
+                # This data represents the clauseset. It is copied
+                # into this memory location because we wish to pass it
+                # as an argument to the simplifyLiteral() function
+                # below.
 
+	leaq	-2416(%rbp), %rdi   # Loads the address 2416 bytes less
+                                # than the stack's base pointer into
+                                # the first argument register. This
+                                # is is the space in which our
+                                # simplifyLiteral() function (called
+                                # below) will store the clauseset
+                                # struct it returns. This is an
+                                # implementation of a calling
+                                # convention which allows us to return
+                                # large objects from functions by
+                                # providing an address to copy the
+                                # object into as a hidden first
+                                # parameter. The reason the compiler
+                                # chose -2416 is that a clauseset is
+                                # 2408 bytes large and we have already
+                                # used bytes -8 to 0 in this stack.
 
-	leaq	-2416(%rbp), %rdi   # ???
-	movl	-7260(%rbp), %esi   # Moves the current unit into %esi
-                                # which by convention stores the 2nd
-                                # argument to a function.
-	movq	%rax, -7272(%rbp)   # ???
-	callq	simplifyLiteral # calls the function - its first ar
-	leaq	-2416(%rbp), %rax
-	movq	%rsp, %rcx
-	movl	$301, %edx
-	movl	%edx, %edi
-	leaq	-2416(%rbp), %rsi
-	movq	%rcx, -7280(%rbp)
-	movq	%rdi, %rcx
-	movq	-7280(%rbp), %rdi
-	rep;movsq
-	movq	%rax, -7288(%rbp)
-	callq	dpll
-	movb	%al, -1(%rbp)
-	jmp	.LBB3_12
-.LBB3_6:
-	movq	-7248(%rbp), %rdi
-	callq	firstLiteral
-	movl	%eax, -2420(%rbp)
-	cmpl	$0, -2420(%rbp)
-	je	.LBB3_8
-	jmp	.LBB3_9
-.LBB3_8:
-	movabsq	$.L.str, %rdi
-	movabsq	$.L.str.1, %rsi
-	movl	$75, %edx
-	movabsq	$.L__PRETTY_FUNCTION__.dpll, %rcx
-	callq	__assert_fail
+	movl	-7260(%rbp), %esi   # Moves the current unit into %esi.
+                                # This will be the second argument to
+                                # simplifyLiteral(). Although the
+                                # first argument (the clauseset) is
+                                # pushed onto the stack, and hence
+                                # doesn't take up a register, we can't
+                                # use %rdi as this is holding the
+                                # hidden first parameter (see above).
+
+	movq	%rax, -7272(%rbp)   # Stores the current value of %rax 
+                                # before the function below is called,
+                                # as it is caller-save.
+
+	callq	simplifyLiteral # calls the function (args outlined above)
+
+	leaq	-2416(%rbp), %rax   # Loads address into %rax. Again, this
+                                # this command does nothing useful and
+                                # is probably anticipating something
+                                # later which doesn't actually happen.
+
+    # The below commands once again set up the rep command. I have
+    # indicated which commands relate to count, source and
+    # destination. The purpose of this rep is explained below.
+	movq	%rsp, %rcx  # (dest) Loads the address at the head of
+                        # the stack into %rcx.
+	movl	$301, %edx  # (count) Moves count value (301) into %edx.
+	movl	%edx, %edi  # (count) Moves count value into %edi.
+	leaq	-2416(%rbp), %rsi   # (source) Loads an address into the
+                                # source register. This address points
+                                # to the start of the clauseset object
+                                # just copied into memory by the above
+                                # method, simplifyLiteral().
+	movq	%rcx, -7280(%rbp)   # (dest) Moves the stack address into
+                                # memory.
+	movq	%rdi, %rcx  # (count) Moves count value to count register.
+	movq	-7280(%rbp), %rdi   # (dest) Gets the stack address from
+                                # memory. This will be used as our
+                                # destination. Note: this is the same
+                                # destination address used for the
+                                # previous rep command. We are safe
+                                # to overwrite this space as we have
+                                # now called the function which was
+                                # using it to store an argument.
+	rep;movsq   # The purpose of this "rep" is to effectively chain
+                # the simplifyLiteral() and dpll() functions. It is
+                # copying the struct which was just put into the stack
+                # when simplifyLiteral() returned, into the top of the
+                # stack so that dpll() can use it as an argument.
+
+	movq	%rax, -7288(%rbp)   # Stores the current value of %rax
+                                # before the function below is called,
+                                # as it is caller-save.
+
+	callq	dpll    # Calls dpll (argument outlined above).
+	movb	%al, -1(%rbp)   # Moves the char returned by the above
+    jmp	.LBB3_12            # function into memory.
+	                        # Then jumps to the point where we
+                            # return that value from this overall
+                            # function.
+
+.LBB3_6:    # Note: we arrive here if there was no unit clause.
+	movq	-7248(%rbp), %rdi   # Moves the address of the clauseset
+                                # originally passed to dpll, into the
+                                # first argument register.
+
+	callq	firstLiteral    # calls the function with the above
+                            # pointer as an argument
+
+	movl	%eax, -2420(%rbp)   # Moves the result of the above
+                                # function into memory. This value
+                                # represents the first literal in
+                                # the first non-empty clause.
+
+	cmpl	$0, -2420(%rbp) # Compare the literal to 0. If they are
+	je	.LBB3_8             # equal then the assert has failed and
+	jmp	.LBB3_9             # we jump to .LBB3_8 to exit the function.
+                            # Otherwise we jump to .LBB3_9.
+
+.LBB3_8:    # This section is arrived at when our assert() funciton
+            # has failed.
+
+    # Here we are setting up the arguments for __assert_fail(), which
+    # has the following C signature:
+    # __assert_fail(const char * assertion, const char * file,
+    #               unsigned int line, const char * function)
+
+	movabsq	$.L.str, %rdi   # Moves a pointer to the string describing
+                            # the failed assertion into the first
+                            # argument register.
+
+	movabsq	$.L.str.1, %rsi # Moves a pointer to the name of this file
+                            # into the second argument register.
+
+	movl	$75, %edx   # Moves the line number of the assert into
+                        # the third argument register.
+	movabsq	$.L__PRETTY_FUNCTION__.dpll, %rcx   # Moves a pointer to
+                                                # the name of the
+                                                # failing function
+                                                # into the fourth
+                                                # argument register.
+
+	callq	__assert_fail   # Calls the function with the above args.
 .LBB3_9:
-	leaq	-4832(%rbp), %rax
-	movl	-2420(%rbp), %esi
-	movq	%rsp, %rcx
-	movl	$301, %edx
-	movl	%edx, %edi
-	movq	%rcx, -7296(%rbp)
-	movq	%rdi, %rcx
-	movq	-7296(%rbp), %rdi
-	movq	-7248(%rbp), %r8
-	movl	%esi, -7300(%rbp)
-	movq	%r8, %rsi
-	rep;movsq
-	leaq	-4832(%rbp), %rdi
-	movl	-7300(%rbp), %esi
-	movq	%rax, -7312(%rbp)
-	callq	simplifyLiteral
-	leaq	-4832(%rbp), %rax
-	movq	%rsp, %rcx
-	movl	$301, %edx
-	movl	%edx, %edi
-	leaq	-4832(%rbp), %rsi
-	movq	%rcx, -7320(%rbp)
-	movq	%rdi, %rcx
-	movq	-7320(%rbp), %rdi
-	rep;movsq
-	movq	%rax, -7328(%rbp)
-	callq	dpll
-	movb	%al, -2421(%rbp)
-	cmpb	$0, -2421(%rbp)
-	je	.LBB3_11
-	movb	-2421(%rbp), %al
-	movb	%al, -1(%rbp)
-	jmp	.LBB3_12
+
+	leaq	-4832(%rbp), %rax   # This is again another "leaq" command
+                                # with no actual purpose. See my
+                                # comments for similar lines above for
+                                # further details.
+
+    # The following commands are again used to set up "rep" and are
+    # commented in the same style as before. In addition, two lines
+    # are used to retrieve and store the literal from firstLiteral()
+    # in memory. These are marked (literal)
+
+	movl	-2420(%rbp), %esi   # (literal) Moves the literal to %esi.
+	movq	%rsp, %rcx  # (dest) Moves the address of the stack poiner
+                        # into %rcx.
+	movl	$301, %edx  # (count) Moves count value (301) into %edx.
+	movl	%edx, %edi  # (count) Moves count value into %edi.
+	movq	%rcx, -7296(%rbp)   # (dest) Saves the address of the
+                                # stack pointer in memory.
+	movq	%rdi, %rcx  # (count) Moves count value into %rcx. That
+                        # our value was a doubleword and is now acting
+                        # as a quadword does not matter, as %ecx, not
+                        # %rcx is the count register.
+	movq	-7296(%rbp), %rdi   # (dest) Gets the address of the stack
+                                # pointer from memory and sets %rdi -
+                                # our destination - to that value.
+	movq	-7248(%rbp), %r8    # (source) Gets the address of the
+                                # clauseset stored in memory earlier
+                                # and puts it in %r8.
+	movl	%esi, -7300(%rbp)   # (literal) Moves the literal into
+                                # memory.
+	movq	%r8, %rsi   # (source) Puts the address of the clauseset
+                        # into the source register, %rsi.
+	rep;movsq   # Copies the clauseset from memory into the top of
+                # the current stack so that it can be used as an
+                # arguemnt in the below simplifyLiteral() function.
+
+	leaq	-4832(%rbp), %rdi   # Loads the address 4832 bytes less
+                                # than the stack's base pointer into
+                                # the first argument register. This
+                                # is is the space in which our
+                                # simplifyLiteral() function (called
+                                # below) will store the clauseset
+                                # struct it returns. We have already
+                                # seen this calling convention used
+                                # to return structs from functions.
+
+	movl	-7300(%rbp), %esi   # Puts the literal from firstLiteral()
+                                # into the second argument register.
+
+	movq	%rax, -7312(%rbp)   # Stores the value of %rax in memory
+                                # as it is a caller-save register
+                                # and we're about to call a function.
+
+	callq	simplifyLiteral # calls function with above arguments.
+
+	leaq	-4832(%rbp), %rax   # This is again another "leaq" command
+                                # with no actual purpose. See my
+                                # comments for similar lines above for
+                                # further details.
+
+    # The below commands once again set up the rep command. I have
+    # indicated which commands relate to count, source and
+    # destination. The purpose of this rep is explained below.
+	movq	%rsp, %rcx  # (dest) Loads the address at the head of
+                        # the stack into %rcx.
+	movl	$301, %edx  # (count) Moves count value (301) into %edx.
+	movl	%edx, %edi  # (count) Moves count value into %edi.
+	leaq	-4832(%rbp), %rsi   # (source) Loads an address into the
+                                # source register. This address points
+                                # to the start of the clauseset object
+                                # just copied into memory by the above
+                                # method, simplifyLiteral().
+	movq	%rcx, -7320(%rbp)   # (dest) Moves the stack address into
+                                # memory.
+	movq	%rdi, %rcx  # (count) Moves count value to count register.
+	movq	-7320(%rbp), %rdi   # (dest) Gets the stack address from
+                                # memory. This will be used as our
+                                # destination. Note: this is the same
+                                # destination address used for the
+                                # previous rep command. We are safe
+                                # to overwrite this space as we have
+                                # now called the function which was
+                                # using it to store an argument.
+	rep;movsq   # The purpose of this "rep" is to effectively chain
+                # the simplifyLiteral() and dpll() functions. It is
+                # copying the struct which was just put into the stack
+                # when simplifyLiteral() returned, into the top of the
+                # stack so that dpll() can use it as an argument.
+
+	movq	%rax, -7328(%rbp)   # Stores the current value of %rax
+                                # before the function below is called,
+                                # as it is caller-save.
+
+	callq	dpll    # Calls dpll (argument outlined above).
+	
+	movb	%al, -2421(%rbp)    # Moves the return value of dpll into
+	cmpb	$0, -2421(%rbp)     # memory, compares it with 0, and if
+	je	.LBB3_11                # they are equal jumps to a new
+	movb	-2421(%rbp), %al    # section. Otherwise, moves the
+	movb	%al, -1(%rbp)       # value to a different location in
+	jmp	.LBB3_12                # memory and jumps to the section
+                                # where this overall function returns
+                                # that value.
 .LBB3_11:
-	leaq	-7240(%rbp), %rax
-	xorl	%ecx, %ecx
-	subl	-2420(%rbp), %ecx
-	movq	%rsp, %rdx
-	movl	$301, %esi
-	movl	%esi, %edi
-	movl	%ecx, -7332(%rbp)
-	movq	%rdi, %rcx
-	movq	%rdx, %rdi
-	movq	-7248(%rbp), %rsi
-	rep;movsq
-	leaq	-7240(%rbp), %rdi
-	movl	-7332(%rbp), %esi
-	movq	%rax, -7344(%rbp)
-	callq	simplifyLiteral
-	leaq	-7240(%rbp), %rax
-	movq	%rsp, %rcx
-	movl	$301, %esi
-	movl	%esi, %edx
-	leaq	-7240(%rbp), %rsi
-	movq	%rcx, -7352(%rbp)
-	movq	%rdx, %rcx
-	movq	-7352(%rbp), %rdi
-	rep;movsq
-	movq	%rax, -7360(%rbp)
-	callq	dpll
-	movb	%al, -1(%rbp)
-.LBB3_12:
-	movsbl	-1(%rbp), %eax
-	addq	$9776, %rsp
-	popq	%rbp
-	retq
+	leaq	-7240(%rbp), %rax   # This is again another "leaq" command
+                                # with no actual purpose. See my
+                                # comments for similar lines above for
+                                # further details.
+
+	xorl	%ecx, %ecx  # This command, which performs exclusive or
+                        # with the bits in %ecx and itself, will
+                        # necessarily set all the bits in the register
+                        # to zero. This is the first step in negating
+                        # the literal which we will soon pass to the
+                        # simplifyLiteral() function.
+
+	subl	-2420(%rbp), %ecx   # Gets the value of the literal from
+                                # firstLiteral() earlier, and subtract
+                                # it from the 0 which we just created.
+                                # This gives us the negative of the
+                                # literal.
+
+    # The below commands once again set up the rep command. I have
+    # indicated which commands relate to count, source and
+    # destination. The purpose of this rep is explained below.
+	movq	%rsp, %rdx  # (dest) Loads the address at the head of
+                        # the stack into %rdx.
+	movl	$301, %esi  # (count) Moves count value (301) into %esi.
+	movl	%esi, %edi  # (count) Moves count value into %edi.
+	movl	%ecx, -7332(%rbp)   # This command now moves the earlier
+                                # negated literal into memory so we
+                                # can use the %rcx register for "rep".
+	movq	%rdi, %rcx  # (count) Moves count value to count register.
+	movq	%rdx, %rdi  # (dest) Puts the stack address into %rdi.
+                        # This will be used as our destination.
+	movq	-7248(%rbp), %rsi   # (source) Loads the address of the
+                                # clauseset struct into memory. This
+                                # is our source address.
+	rep;movsq   # Copies the clauseset from memory into the top of
+                # the current stack so that it can be used as an
+                # arguemnt in the below simplifyLiteral() function.
+
+	leaq	-7240(%rbp), %rdi   # Loads the address 7240 bytes less
+                                # than the stack's base pointer into
+                                # the first argument register. This
+                                # is is the space in which our
+                                # simplifyLiteral() function (called
+                                # below) will store the clauseset
+                                # struct it returns. We have already
+                                # seen this calling convention used
+                                # to return structs from functions.
+
+	movl	-7332(%rbp), %esi   # Puts our negated literal
+                                # into the second argument register.
+
+	movq	%rax, -7344(%rbp)   # Stores the value of %rax in memory
+                                # as it is a caller-save register
+                                # and we're about to call a function.
+
+	callq	simplifyLiteral # calls function with above arguments.
+
+	leaq	-7240(%rbp), %rax   # This is again another "leaq" command
+                                # with no actual purpose. See my
+                                # comments for similar lines above for
+                                # further details.
+
+    # The below commands once again set up the rep command. I have
+    # indicated which commands relate to count, source and
+    # destination. The purpose of this rep is explained below.
+	movq	%rsp, %rcx  # (dest) Loads the address at the head of
+                        # the stack into %rcx.
+	movl	$301, %esi  # (count) Moves count value (301) into %esi.
+	movl	%esi, %edx  # (count) Moves count value into %edx.
+	leaq	-7240(%rbp), %rsi   # (source) Loads an address into the
+                                # source register. This address points
+                                # to the start of the clauseset object
+                                # just copied into memory by the above
+                                # method, simplifyLiteral().
+	movq	%rcx, -7352(%rbp)   # (dest) Moves the stack address into
+                                # memory.
+	movq	%rdx, %rcx  # (count) Moves count value to count register.
+	movq	-7352(%rbp), %rdi   # (dest) Gets the stack address from
+                                # memory. This will be used as our
+                                # destination. Note: this is the same
+                                # destination address used for the
+                                # previous rep command. We are safe
+                                # to overwrite this space as we have
+                                # now called the function which was
+                                # using it to store an argument.
+	rep;movsq   # The purpose of this "rep" is to effectively chain
+                # the simplifyLiteral() and dpll() functions. It is
+                # copying the struct which was just put into the stack
+                # when simplifyLiteral() returned, into the top of the
+                # stack so that dpll() can use it as an argument.
+
+	movq	%rax, -7360(%rbp)   # Stores the current value of %rax
+                                # before the function below is called,
+                                # as it is caller-save.
+
+	callq	dpll    # Calls dpll (argument outlined above).
+	
+	movb	%al, -1(%rbp)   # Moves the value returned from the above
+                            # function into memory. This space in
+                            # memory we will later use as the value
+                            # we return from this overall function.
+
+.LBB3_12: # We end up here when we wish to return from the function.
+
+	movsbl	-1(%rbp), %eax  # Moves the return value from memory to
+                            # the return register.
+
+	addq	$9776, %rsp # Adds the number of bytes we took for this
+                        # stack frame to the stack pointer. This frees
+                        # the stack space allocated at the start of
+                        # the function.
+
+	popq	%rbp    # Pops this value from the stack because we pushed
+                    # it at the start of this function.
+
+	retq    # returns from dpll() with the above value.
 .Lfunc_end3:
 	.size	dpll, .Lfunc_end3-dpll
 	.cfi_endproc
