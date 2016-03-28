@@ -14,7 +14,8 @@ containsEmptyClause:
 	.cfi_offset %rbp, -16
 	movq	%rsp, %rbp  # Copies the address of the top of the stack
                         # into %rbp, letting us treat that register as
-                        # the stack pointer in this function
+                        # a pointer to the base of the stack in this
+                        # function.
 .Ltmp2:
 	.cfi_def_cfa_register %rbp
 	movq	%rdi, -16(%rbp) # Moves the contents of %rdi into the
@@ -118,7 +119,8 @@ unitClause:
 	.cfi_offset %rbp, -16
 	movq	%rsp, %rbp  # Copies the address of the top of the stack
                         # into %rbp, letting us treat that register as
-                        # the stack pointer in this function
+                        # a pointer to the base of the stack in this
+                        # function.
 .Ltmp5:
 	.cfi_def_cfa_register %rbp
 	movq	%rdi, -16(%rbp) # Moves the contents of %rdi into the
@@ -235,7 +237,8 @@ firstLiteral:
 	.cfi_offset %rbp, -16
 	movq	%rsp, %rbp  # Copies the address of the top of the stack
                         # into %rbp, letting us treat that register as
-                        # the stack pointer in this function
+                        # a pointer to the base of the stack in this
+                        # function.
 .Ltmp8:
 	.cfi_def_cfa_register %rbp
 	movq	%rdi, -16(%rbp) # Moves the contents of %rdi into the
@@ -363,13 +366,7 @@ dpll:
 	leaq	16(%rbp), %rax  # Loads the effective address 16 bytes
                             # after %rbp on the stack. This points to
                             # the clauseset passed as an argument to
-                            # this function. The reason it is 16 bytes
-                            # back on the stack is that when this
-                            # function is called, its argument is
-                            # pushed before the call instruction, and
-                            # hence before the storage of all the
-                            # values which are naturally pushed to the
-                            # stack when a function is called.
+                            # this function.
 
 	movq	node_count, %rcx    # Moves value in memory pointed to by
     addq	$1, %rcx            # "node_count" (global var) into %rcx,
@@ -422,22 +419,50 @@ dpll:
                             # unit clause so we jump to a later
                             # section.
 
-	leaq	-2416(%rbp), %rax   # ??? Is this the address after the clauseset. We will copy the clauseset into the space after it later
-	movl	-8(%rbp), %esi  # unit ...
-	movq	%rsp, %rcx  # (dest)
-	movl	$301, %edx  # (count)
-	movl	%edx, %edi  # (count)
-	movq	%rcx, -7256(%rbp)   # (dest)
-	movq	%rdi, %rcx  # (count) = 301 - l to q w/out conversion???
-	movq	-7256(%rbp), %rdi   # (dest) = addr of stack pointer
-	movq	-7248(%rbp), %r8    # (source) = addr of clauseset
-	movl	%esi, -7260(%rbp)   # Stores unit returned above...
-	movq	%r8, %rsi   # (source)
-	rep;movsq
-	leaq	-2416(%rbp), %rdi
-	movl	-7260(%rbp), %esi
-	movq	%rax, -7272(%rbp)
-	callq	simplifyLiteral
+	leaq	-2416(%rbp), %rax   # ??? Still no idea, although 2416 -
+                                # 2408 gives the 8 bytes used above
+
+    # The following commands are largely used to set up the necessary
+    # conditions for the "rep" command used below. This command copies
+    # "count" chunks of 8 bytes from the source to the destination.
+    # This requires us to set up three things. The source address must
+    # be in %rsi, The destination in %rdi, and the count in %ecx. I
+    # have marked below which commands set up which. There are also
+    # 2 commands which move the unit returned by the unitClause()
+    # function into a different point in memory, which are marked as
+    # (unit).
+	movl	-8(%rbp), %esi  # (unit) Moves the unit into %esi.
+	movq	%rsp, %rcx  # (dest) Moves the address of the stack poiner
+                        # into %rcx.
+	movl	$301, %edx  # (count) Moves count value (301) into %edx.
+	movl	%edx, %edi  # (count) Moves count value into %edi.
+	movq	%rcx, -7256(%rbp)   # (dest) Saves the address of the
+                                # stack pointer in memory.
+	movq	%rdi, %rcx  # (count) Moves count value into %rcx. That
+                        # our value was a doubleword and is now acting
+                        # as a quadword does not matter, as %ecx, not
+                        # %rcx is the count register.
+	movq	-7256(%rbp), %rdi   # (dest) Gets the address of the stack
+                                # pointer from memory and sets %rdi -
+                                # our destination - to that value.
+	movq	-7248(%rbp), %r8    # (source) Gets the address of the
+                                # clauseset stored in memory earlier
+                                # and puts it in %r8.
+	movl	%esi, -7260(%rbp)   # (unit) Moves the unit into memory.
+	movq	%r8, %rsi   # (source) Puts the address of the clauseset
+                        # into the source register, %rsi.
+	rep;movsq   # Copies 2408 bytes from memory (from the previous
+                # callstack) into this function's stack. This data
+                # represents the clauseset. It is copied into memory
+                # because we wish to pass it as an argument to 
+
+
+	leaq	-2416(%rbp), %rdi   # ???
+	movl	-7260(%rbp), %esi   # Moves the current unit into %esi
+                                # which by convention stores the 2nd
+                                # argument to a function.
+	movq	%rax, -7272(%rbp)   # ???
+	callq	simplifyLiteral # calls the function - its first ar
 	leaq	-2416(%rbp), %rax
 	movq	%rsp, %rcx
 	movl	$301, %edx
